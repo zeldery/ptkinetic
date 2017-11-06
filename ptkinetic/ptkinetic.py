@@ -63,6 +63,9 @@ class Kinetic:
         self.concentrate = self.concentrate.iloc[-1,:]
         for fig in self.fig:
             plt.close(fig)
+            
+    def save(self,file_name):
+        self.concentrate.to_csv(file_name)
         
     def plot(self, chemical = None):
         fig = plt.figure()
