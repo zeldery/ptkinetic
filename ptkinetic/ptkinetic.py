@@ -38,10 +38,13 @@ class Kinetic:
     def run(self,n):
         if not isinstance(n,int):
             n = int(n)
+        temp = pd.DataFrame(columns = self.concentrate.columns, index = np.arange(self.current + n + 1))
+        temp.iloc[:(self.current+1),:] = self.concentrate.iloc[:(self.current+1),:]
+        self.concentrate = temp
         for i in range(n):
             self.current += 1
-            self.concentrate.loc[self.current] = self.concentrate.iloc[self.current-1,:]
-            v = self.k.copy() * self.delta
+            self.concentrate.iloc[self.current,:] = self.concentrate.iloc[self.current-1,:]
+            v = self.k * self.delta
             for j in range(len(self.k)):
                 for inp in self.inp[j]:
                     v[j] *= self.concentrate.loc[self.current,inp]
