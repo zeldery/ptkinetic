@@ -105,8 +105,7 @@ class Kinetic:
             raise RuntimeError('Cannot run before initialization')
     
     def reset(self):
-        self.current = 0
-        self.concentrate = self.concentrate.iloc[-1,:]
+        self.data = self.data.iloc[-1,:]
         for fig in self.fig:
             plt.close(fig)
             
