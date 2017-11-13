@@ -10,56 +10,99 @@ from matplotlib.pyplot import cm
 
 class Kinetic:
     def __init__(self,delta = 0.0001,criterion = 0.01):
-        self.current = 0
-        self.concentrate = pd.DataFrame(index = [0])
-        self.constant = None
-        self.k = None
-        self.inp = []
-        self.outp = []
         self.delta = delta
         self.criterion = criterion
+        self.status = 0 # 1 for add chemical, 2 for add reaction, 3 for initialization, 4 for already run
+        # Chemical properties
+        self.chemicals = []
+        self.concentrations = []
+        self.stables = []
+        # Reaction properties
+        self.reaction_inputs = []
+        self.reaction_outputs = []
+        self.reaction_constants = []
+        # 
         self.fig = []
         
-    def add_chemical(self,name,concentrate,constant = False):
-        self.concentrate[name] = concentrate
-        if isinstance(self.constant,pd.Series):
-            self.constant[name] = constant
-        else:
-            self.constant = pd.Series([constant],index=[name])
-    
-    def add_reaction(self,inp,outp,k):
-        if isinstance(self.k,pd.Series):
-            self.k[len(self.k)] = k
-        else:
-            self.k = pd.Series([k])
-        self.inp.append(inp)
-        self.outp.append(outp)
         
-    def run(self,n):
-        if not isinstance(n,int):
-            n = int(n)
-        temp = pd.DataFrame(columns = self.concentrate.columns, index = np.arange(self.current + n + 1))
-        temp.iloc[:(self.current+1),:] = self.concentrate.iloc[:(self.current+1),:]
-        self.concentrate = temp
-        for i in range(n):
-            self.current += 1
-            self.concentrate.iloc[self.current,:] = self.concentrate.iloc[self.current-1,:]
-            v = self.k * self.delta
-            for j in range(len(self.k)):
-                for inp in self.inp[j]:
-                    v[j] *= self.concentrate.loc[self.current,inp]
-            for j in range(len(self.k)):
-                for inp in self.inp[j]:
-                    if not self.constant[inp]:
-                        if self.concentrate.loc[self.current,inp] >= 0.000001 and v[j] / self.concentrate.loc[self.current,inp] >= self.criterion:
-                            print(self.current)
-                            print(inp)
-                            print(j)
-                            raise ValueError('The change in one step is too large, decrease the delta')
-                        self.concentrate.loc[self.current,inp] -= v[j]
-                for outp in self.outp[j]:
-                    if not self.constant[outp]:
-                        self.concentrate.loc[self.current,outp] += v[j]
+    def add_chemical(self,name,concentration,stable = False):
+        if self.status == 0:
+            self.status = 1
+        if self.status == 1:
+            if name in self.chemicals:
+                raise ValueError('The chemical name is already in the Kinetic object')
+            self.chemicals += [name]
+            self.concentrations += [concentration]
+            self.stables += [stable]
+        else:
+            raise RuntimeError('Cannot add chemical after adding reaction')
+    
+    
+    def add_reaction(self, inp, outp, constant):
+        if self.status == 1:
+            self.status = 2
+        if self.status == 2:
+            for name in inp:
+                if name not in self.chemicals:
+                    raise ValueError('The chemical name has not been added')
+            for name in outp:
+                if name not in self.chemicals:
+                    raise ValueError('The chemical name has not been added')
+            self.reaction_inputs += [inp]
+            self.reaction_outputs += [outp]
+            self.reaction_constants += [constant]
+        elif self.status == 0:
+            raise RuntimeError('Cannot add reaction before adding chemical')
+        else:
+            raise RuntimeError('Cannot add reaction after running simulation')
+    
+    def init(self):
+        if self.status == 2:
+            self.status = 3
+            n_chem = len(self.chemicals)
+            n_react = len(self.reaction_constants)
+            self.k = np.array(self.reaction_constants) * self.delta
+            self.inp_marker = np.zeros((n_react,n_chem))
+            for i in range(n_react):
+                for name in self.reaction_inputs[i]:
+                    self.inp_marker[i,self.chemicals.index(name)] = 1
+            self.outp_marker = np.zeros((n_react,n_chem))
+            for i in range(n_react):
+                for name in self.reaction_outputs[i]:
+                    self.outp_marker[i,self.chemicals.index(name)] = 1
+            self.data = np.array(self.concentrations).reshape((1,n_chem))
+            self.stables = np.array(self.stables)
+        else:
+            if self.status < 2:
+                raise RuntimeError('Cannot initialize before adding reaction')
+            else:
+                raise RuntimeError('Already initialized before')
+    
+    def run(self,times):
+        if self.status == 3:
+            n_react, n_chem = self.inp_marker.shape
+            self.status = 4
+            self.data = np.zeros((times+1, n_chem))
+            self.data[0,:] = np.array(self.concentrations)
+            for i in range(times):
+                temp = self.inp_marker * self.data[i,:]
+                rate = np.where(self.inp_marker == 0 , 1 , temp).prod(axis=1) * self.k
+                change_outp = (self.outp_marker.T * rate).sum(axis = 1)
+                change_inp = (self.inp_marker.T * rate).sum(axis = 1)
+                self.data[i+1,:] = self.data[i,:] + np.where(self.stables, 0.0, change_outp - change_inp)
+        elif self.status == 4:
+            n_react, n_chem = self.inp_marker.shape
+            data = np.zeros((times+1,n_chem))
+            data[0,:] = self.data[-1,:]
+            for i in range(times):
+                temp = self.inp_marker * data[i,:]
+                rate = np.where(self.inp_marker == 0 , 1 , temp).prod(axis=1) * self.k
+                change_outp = (self.outp_marker.T * rate).sum(axis = 1)
+                change_inp = (self.inp_marker.T * rate).sum(axis = 1)
+                data[i+1,:] = data[i,:] + np.where(self.stables, 0.0, change_outp - change_inp)
+            self.data = np.concatenate((self.data,data[1:,:]),axis = 0)
+        if self.status < 3:
+            raise RuntimeError('Cannot run before initialization')
     
     def reset(self):
         self.current = 0
@@ -68,18 +111,22 @@ class Kinetic:
             plt.close(fig)
             
     def save(self,file_name):
-        self.concentrate.to_csv(file_name)
+        data = pd.DataFrame(self.data,columns = self.chemicals)
+        data.to_csv(file_name)
         
     def plot(self, chemical = None):
+        if self.status < 4:
+            raise RuntimeError('Cannot plot before run')
+        n_run, n_chem = self.data.shape
         fig = plt.figure()
         ax = fig.add_subplot(1,1,1)
         if chemical == None:
-            ind = self.concentrate.columns
+            ind = range(n_chem)
         else:
-            ind = chemical
+            ind = [self.chemicals.index(x) for x in chemical]
         color_map = cm.rainbow(np.linspace(0,1,len(ind)))
         for i,j in enumerate(ind):
-            ax.plot(np.arange(self.current+1)*self.delta,self.concentrate[j],c=color_map[i])
+            ax.plot(self.delta*np.arange(n_run), self.data[:,j], c=color_map[i])
         fig.show()
         self.fig += [fig]
         
