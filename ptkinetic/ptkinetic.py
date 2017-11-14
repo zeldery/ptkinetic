@@ -74,11 +74,11 @@ class Kinetic:
             self.inp_marker = np.zeros((n_react,n_chem))
             for i in range(n_react):
                 for name in self.reaction_inputs[i]:
-                    self.inp_marker[i,self.chemicals.index(name)] = 1
+                    self.inp_marker[i,self.chemicals.index(name)] += 1
             self.outp_marker = np.zeros((n_react,n_chem))
             for i in range(n_react):
                 for name in self.reaction_outputs[i]:
-                    self.outp_marker[i,self.chemicals.index(name)] = 1
+                    self.outp_marker[i,self.chemicals.index(name)] += 1
             self.data = np.array(self.concentrations).reshape((1,n_chem))
             self.stables = np.array(self.stables)
         else:
@@ -94,8 +94,7 @@ class Kinetic:
             self.data = np.zeros((times+1, n_chem))
             self.data[0,:] = np.array(self.concentrations)
             for i in range(times):
-                temp = self.inp_marker * self.data[i,:]
-                rate = np.where(self.inp_marker == 0 , 1 , temp).prod(axis=1) * self.k
+                rate = ( self.data[i,:] ** self.inp_marker ).prod(axis=1) * self.k
                 change_outp = (self.outp_marker.T * rate).sum(axis = 1)
                 change_inp = (self.inp_marker.T * rate).sum(axis = 1)
                 change = np.where(self.stables, 0.0, change_outp - change_inp)
@@ -107,8 +106,7 @@ class Kinetic:
             data = np.zeros((times+1,n_chem))
             data[0,:] = self.data[-1,:]
             for i in range(times):
-                temp = self.inp_marker * data[i,:]
-                rate = np.where(self.inp_marker == 0 , 1 , temp).prod(axis=1) * self.k
+                rate = ( self.data[i,:] ** self.inp_marker ).prod(axis=1) * self.k
                 change_outp = (self.outp_marker.T * rate).sum(axis = 1)
                 change_inp = (self.inp_marker.T * rate).sum(axis = 1)
                 change = np.where(self.stables, 0.0, change_outp - change_inp)
