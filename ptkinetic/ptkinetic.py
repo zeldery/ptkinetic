@@ -106,7 +106,7 @@ class Kinetic:
                 change_outp = (self.outp_marker.T * rate).sum(axis = 1)
                 change_inp = (self.inp_marker.T * rate).sum(axis = 1)
                 change = np.where(self.stables, 0.0, change_outp - change_inp)
-                if np.where(change != 0.0, change/data[i,:] , 0.0).max() > self.criterion:
+                if np.where(change != 0.0, np.abs(change/data[i,:]) , 0.0).max() > self.criterion:
                     raise ValueError('The change in one step is too large, decrease the step size')
                 data[i+1,:] = data[i,:] + change
             self.data = np.concatenate((self.data,data[1:,:]),axis = 0)
