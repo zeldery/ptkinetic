@@ -9,9 +9,10 @@ import matplotlib.pyplot as plt
 from matplotlib.pyplot import cm
 
 class Kinetic:
-    def __init__(self,delta = None,criterion = None):
+    def __init__(self,delta = None, check = True, criterion = None):
         self.delta = delta
         self.criterion = criterion
+        self.check = True
         self.status = 0 # 1 for add chemical, 2 for add reaction, 3 for initialization, 4 for already run
         # Chemical properties
         self.chemicals = []
@@ -56,12 +57,14 @@ class Kinetic:
         else:
             raise RuntimeError('Cannot add reaction after running simulation')
     
-    def init(self, delta = None, criterion = None):
+    def init(self, delta = None, check = None, criterion = None):
         if self.status == 2:
             if delta != None:
                 self.delta = delta
             if criterion != None:
                 self.criterion = criterion
+            if check != None:
+                self.check = check
             if self.delta == None or self.criterion == None:
                 raise ValueError('Missing step size or criterion')
             self.status = 3
@@ -95,7 +98,10 @@ class Kinetic:
                 rate = np.where(self.inp_marker == 0 , 1 , temp).prod(axis=1) * self.k
                 change_outp = (self.outp_marker.T * rate).sum(axis = 1)
                 change_inp = (self.inp_marker.T * rate).sum(axis = 1)
-                self.data[i+1,:] = self.data[i,:] + np.where(self.stables, 0.0, change_outp - change_inp)
+                change = np.where(self.stables, 0.0, change_outp - change_inp)
+                if self.check and np.where(self.data[i,:] != 0, np.abs(change_inp/self.data[i,:]) , 0.0).max() > self.criterion:
+                    raise ValueError('The change in one step is too large, decrease the step size')
+                self.data[i+1,:] = self.data[i,:] + change
         elif self.status == 4:
             n_react, n_chem = self.inp_marker.shape
             data = np.zeros((times+1,n_chem))
@@ -106,7 +112,7 @@ class Kinetic:
                 change_outp = (self.outp_marker.T * rate).sum(axis = 1)
                 change_inp = (self.inp_marker.T * rate).sum(axis = 1)
                 change = np.where(self.stables, 0.0, change_outp - change_inp)
-                if np.where(change != 0.0, np.abs(change/data[i,:]) , 0.0).max() > self.criterion:
+                if self.check and np.where(data[i,:] !=0 , np.abs(change_inp/data[i,:]) , 0.0).max() > self.criterion:
                     raise ValueError('The change in one step is too large, decrease the step size')
                 data[i+1,:] = data[i,:] + change
             self.data = np.concatenate((self.data,data[1:,:]),axis = 0)
@@ -135,7 +141,8 @@ class Kinetic:
             ind = [self.chemicals.index(x) for x in chemical]
         color_map = cm.rainbow(np.linspace(0,1,len(ind)))
         for i,j in enumerate(ind):
-            ax.plot(self.delta*np.arange(n_run), self.data[:,j], c=color_map[i])
+            temp, = ax.plot(self.delta*np.arange(n_run), self.data[:,j], c=color_map[i],label = self.chemicals[j])
+        ax.legend()
         fig.show()
         self.fig += [fig]
         
