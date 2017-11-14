@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 from matplotlib.pyplot import cm
 
 class Kinetic:
-    def __init__(self,delta = 0.0001,criterion = 0.01):
+    def __init__(self,delta = None,criterion = None):
         self.delta = delta
         self.criterion = criterion
         self.status = 0 # 1 for add chemical, 2 for add reaction, 3 for initialization, 4 for already run
@@ -21,7 +21,7 @@ class Kinetic:
         self.reaction_inputs = []
         self.reaction_outputs = []
         self.reaction_constants = []
-        # 
+        # Other properties
         self.fig = []
         
         
@@ -56,8 +56,14 @@ class Kinetic:
         else:
             raise RuntimeError('Cannot add reaction after running simulation')
     
-    def init(self):
+    def init(self, delta = None, criterion = None):
         if self.status == 2:
+            if delta != None:
+                self.delta = delta
+            if criterion != None:
+                self.criterion = criterion
+            if self.delta == None or self.criterion == None:
+                raise ValueError('Missing step size or criterion')
             self.status = 3
             n_chem = len(self.chemicals)
             n_react = len(self.reaction_constants)
@@ -99,13 +105,17 @@ class Kinetic:
                 rate = np.where(self.inp_marker == 0 , 1 , temp).prod(axis=1) * self.k
                 change_outp = (self.outp_marker.T * rate).sum(axis = 1)
                 change_inp = (self.inp_marker.T * rate).sum(axis = 1)
-                data[i+1,:] = data[i,:] + np.where(self.stables, 0.0, change_outp - change_inp)
+                change = np.where(self.stables, 0.0, change_outp - change_inp)
+                if np.where(change != 0.0, change/data[i,:] , 0.0).max() > self.criterion:
+                    raise ValueError('The change in one step is too large, decrease the step size')
+                data[i+1,:] = data[i,:] + change
             self.data = np.concatenate((self.data,data[1:,:]),axis = 0)
         if self.status < 3:
             raise RuntimeError('Cannot run before initialization')
     
     def reset(self):
         self.data = self.data.iloc[-1,:]
+        self.status = 3
         for fig in self.fig:
             plt.close(fig)
             
