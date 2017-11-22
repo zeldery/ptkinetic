@@ -106,7 +106,7 @@ class Kinetic:
             data = np.zeros((times+1,n_chem))
             data[0,:] = self.data[-1,:]
             for i in range(times):
-                rate = ( self.data[i,:] ** self.inp_marker ).prod(axis=1) * self.k
+                rate = ( data[i,:] ** self.inp_marker ).prod(axis=1) * self.k
                 change_outp = (self.outp_marker.T * rate).sum(axis = 1)
                 change_inp = (self.inp_marker.T * rate).sum(axis = 1)
                 change = np.where(self.stables, 0.0, change_outp - change_inp)
@@ -118,7 +118,7 @@ class Kinetic:
             raise RuntimeError('Cannot run before initialization')
     
     def reset(self):
-        self.data = self.data.iloc[-1,:]
+        self.data = self.data[-1,:]
         self.status = 3
         for fig in self.fig:
             plt.close(fig)
