@@ -1,0 +1,60 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Sun Dec 10 23:50:27 2017
+
+@author: NHUTMINH
+"""
+
+import sys  
+from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QGridLayout, QWidget, QDesktopWidget, QPushButton, QLineEdit, QInputDialog
+from PyQt5.QtGui import QIcon
+
+ 
+class App(QWidget):
+ 
+    def __init__(self):
+        super().__init__()
+        self.title = 'PTKinetic'        
+        self.width = 800
+        self.height = 600
+        self.initUI()
+ 
+    def initUI(self):        
+        #Cài đặt Title cho giao diện chính
+        self.setWindowTitle(self.title) 
+        
+        #Cài đặt vị trí giữa màn hình cho giao diện
+        qtRectangle = self.frameGeometry()
+        centerPoint = QDesktopWidget().availableGeometry().center()
+        qtRectangle.moveCenter(centerPoint)
+        self.move(qtRectangle.topLeft())
+        qtRectangle = self.frameGeometry()
+        centerPoint = QDesktopWidget().availableGeometry().center()
+        qtRectangle.moveCenter(centerPoint)
+        self.move(qtRectangle.topLeft())
+        
+        #Thêm 1 button vào giao diện
+        self.btn = QPushButton('Add Reactant', self)
+        self.btn.move(30, 30)
+        self.btn.clicked.connect(self.showDialog)
+        
+        #Thêm ô hiển thị
+        self.le = QLineEdit(self)
+        self.le.move(130, 28)
+        
+        #Xuất giao diện
+        self.show()
+        
+    def showDialog(self):
+        
+        text, ok = QInputDialog.getText(self, 'Reactant', 
+            'Enter name of reactant:')
+        
+        if ok:
+            self.le.setText(str(text))
+ 
+if __name__ == '__main__':
+    
+    app = QApplication(sys.argv)
+    ex = App()
+    sys.exit(app.exec_())
