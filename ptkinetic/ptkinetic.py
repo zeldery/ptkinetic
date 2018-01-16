@@ -20,7 +20,7 @@ class Kinetic:
         self.check = False # Whether check the criterion or not
         self.criterion = 1.0 # the criterion of the ratio between the change and current concentration of any chemicals
         self.num_of_steps = 1
-        
+
         # Flag variables
         self.flag_init = False
         self.flag_run = False
@@ -32,15 +32,15 @@ class Kinetic:
         self.reaction_inputs = [] # List of reactants
         self.reaction_outputs = [] # List of products
         self.reaction_constants = [] # List of rate constants
-        
+
         # Data variables
         self.times = None
         self.data = None
         self.k = None
         # Other properties
         self.fig = [] # List of figure object, for clean-up only
-        
-        
+
+
     def add_chemical(self,name,concentration,stable = False):
         '''Add chemical nomenclature to the model'''
         if self.flag_init:
@@ -50,8 +50,8 @@ class Kinetic:
         self.chemicals += [name]
         self.concentrations += [concentration]
         self.chemical_stables += [stable]
-    
-    
+
+
     def add_reaction(self, inp, outp, constant):
         '''Add reactions to model, including reactants, products and rate constant'''
         if self.flag_init:
@@ -65,7 +65,7 @@ class Kinetic:
         self.reaction_inputs += [inp]
         self.reaction_outputs += [outp]
         self.reaction_constants += [constant]
-    
+
     def init(self, num_of_steps = 1, check = False, criterion = None):
         '''Initialize the variable necessary in the simulation'''
         if self.flag_init:
@@ -92,9 +92,9 @@ class Kinetic:
         self.times = np.array([0.0])
         self.data = np.array(self.concentrations).reshape((1,n_chem)) # Matrix with each row is run, each column is a chemical
         self.stables = np.array(self.chemical_stables) # Convert to numpy object
-        
 
-    
+
+
     def run(self, cycle, delta):
         ''' Run function '''
         if not self.flag_init:
@@ -120,18 +120,26 @@ class Kinetic:
                 temp = temp + change
             self.data[current,:] = temp
             current += 1
-    
+
     def reset(self):
         '''Free the data and figure, keep only the last concentration'''
         self.data = self.data[-1,:]
+        self.times = self.times[[-1]]
         for fig in self.fig:
             plt.close(fig)
-            
+
     def save(self,file_name):
         '''Save the data to a csv file'''
-        data = pd.DataFrame(self.data,columns = self.chemicals)
+        data = pd.DataFrame(self.data,columns = self.chemicals, index = self.times)
         data.to_csv(file_name)
-        
+
+    def read(self, file_name):
+        data = pd.read_csv(file_name, index_col = 0)
+        self.data = data.values
+        self.chemicals = self.data.columns
+        self.times = self.data.index
+        self.flag_run = True
+
     def plot(self, chemical = None):
         ''' Plot the concentration '''
         if not self.flag_run:
@@ -149,6 +157,3 @@ class Kinetic:
         ax.legend()
         fig.show()
         self.fig += [fig] # Save the figure to delete
-        
-    
-    
